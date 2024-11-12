@@ -1,8 +1,9 @@
 import random
 
-import components
 import flet as ft
 import requests
+
+import components
 import views
 
 api_url = ""
@@ -60,4 +61,4 @@ def main(page: ft.Page):
     page.update()
 
 
-ft.app(target=main)
+ft.app(target=main, assets_dir="assets", view=ft.WEB_BROWSER)

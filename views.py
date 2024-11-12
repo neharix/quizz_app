@@ -3,9 +3,10 @@ import datetime
 import random
 from typing import List
 
-import components
 import flet as ft
 import requests
+
+import components
 import settings
 
 
@@ -232,26 +233,34 @@ class LoginPage(ft.View):
     def focus(self, e: ft.KeyboardEvent):
 
         if e.key == "Enter":
-            fields = (self.__name_field, self.__surname_field) if self.__about_field_focused else (self.__name_field, self.__surname_field, self.__about_field)
+            fields = (
+                (self.__name_field, self.__surname_field)
+                if self.__about_field_focused
+                else (self.__name_field, self.__surname_field, self.__about_field)
+            )
             blank_filled = True
             for field in fields:
                 if field.value == "":
-                    self.__about_field_focused = True if fields.index(field) == 2 else False
+                    self.__about_field_focused = (
+                        True if fields.index(field) == 2 else False
+                    )
                     blank_filled = False
                     field.focus()
                     break
             if blank_filled:
                 self.__submit()
 
-
         self.page.update()
+
 
 class ChallengesPage(ft.View):
     def __init__(self, token: str):
         super().__init__()
         self.__token = token
         self.__challenges_list = requests.request(
-            "GET", f"{settings.API_URL}/api/v1/challengelist/", headers={"Authorization": self.__token}
+            "GET",
+            f"{settings.API_URL}/api/v1/challengelist/",
+            headers={"Authorization": self.__token},
         ).json()
 
         self.__appbar = ft.AppBar(
@@ -260,14 +269,7 @@ class ChallengesPage(ft.View):
             center_title=True,
         )
 
-        self.__grid = ft.GridView(
-            expand=1,
-            runs_count=5,
-            max_extent=300,
-            child_aspect_ratio=3,
-            spacing=10,
-            run_spacing=10,
-        )
+        self.__challenge_rows = ft.Column()
 
         containers = []
 
@@ -281,7 +283,10 @@ class ChallengesPage(ft.View):
                         content=ft.Row(
                             alignment=ft.MainAxisAlignment.START,
                             controls=[
-                                ft.Icon(name=ft.icons.QUIZ_OUTLINED, color=ft.colors.GREY_400),
+                                ft.Icon(
+                                    name=ft.icons.QUIZ_OUTLINED,
+                                    color=ft.colors.GREY_400,
+                                ),
                                 ft.Column(
                                     controls=[
                                         ft.Text(
@@ -289,9 +294,14 @@ class ChallengesPage(ft.View):
                                             weight=ft.FontWeight.W_500,
                                             size=20,
                                             color=ft.colors.GREY_400,
+                                            max_lines=5,
+                                            overflow=ft.TextOverflow.ELLIPSIS,
                                         ),
-                                        ft.Text(f"Sorag sany: {
-                                                challenge['question_count']}", color=ft.colors.GREY_400),
+                                        ft.Text(
+                                            f"Sorag sany: {
+                                                challenge['question_count']}",
+                                            color=ft.colors.GREY_400,
+                                        ),
                                     ],
                                     alignment=ft.MainAxisAlignment.CENTER,
                                 ),
@@ -318,8 +328,10 @@ class ChallengesPage(ft.View):
                                             weight=ft.FontWeight.W_500,
                                             size=20,
                                         ),
-                                        ft.Text(f"Sorag sany: {
-                                                challenge['question_count']}"),
+                                        ft.Text(
+                                            f"Sorag sany: {
+                                                challenge['question_count']}"
+                                        ),
                                     ],
                                     alignment=ft.MainAxisAlignment.CENTER,
                                 ),
@@ -328,14 +340,12 @@ class ChallengesPage(ft.View):
                     )
                 )
 
-        for container in containers:
-            self.__grid.controls.append(container)
+        self.__challenge_rows.controls = containers
 
         self.controls = [
             self.__appbar,
-            self.__grid,
+            self.__challenge_rows,
         ]
-
 
     def __run_challenge(self, pk: int):
 
@@ -346,9 +356,11 @@ class ChallengesPage(ft.View):
     def get_selected_challenge(self):
         return self.__selected_challenge
 
+
 class ChallengePage(ft.View):
     def __init__(self, pk: int, token: str):
         super().__init__()
+        self.__is_nav_hidden = True
         self.__token = token
         self.__challenge_pk = pk
         self.__user_data = requests.request(
@@ -357,33 +369,43 @@ class ChallengePage(ft.View):
             headers={"Authorization": self.__token},
         ).json()
         self.__challenge_data = requests.request(
-            "GET", f"{settings.API_URL}/api/v1/challenge/{self.__challenge_pk}/", headers={"Authorization": self.__token}
+            "GET",
+            f"{settings.API_URL}/api/v1/challenge/{self.__challenge_pk}/",
+            headers={"Authorization": self.__token},
         ).json()
         self.__session = requests.request(
             "POST",
             url=f"{settings.API_URL}/api/v1/test-session-create/",
             headers={"Authorization": self.__token},
-            data={"challenge": self.__challenge_pk, "user": int(self.__user_data[0]["id"])},
+            data={
+                "challenge": self.__challenge_pk,
+                "user": int(self.__user_data[0]["id"]),
+            },
         ).json()
 
         questions_data = requests.request(
-            "GET", f"{settings.API_URL}/api/v1/challenge-data/{self.__challenge_pk}/", headers={"Authorization": self.__token}
+            "GET",
+            f"{settings.API_URL}/api/v1/challenge-data/{self.__challenge_pk}/",
+            headers={"Authorization": self.__token},
         ).json()
         random.shuffle(questions_data)
         self.__questions_menu: components.QuestionsMenu = components.QuestionsMenu(
-            [components.Question(question) for question in questions_data], self.__question_menu_item_clicked,
+            [components.Question(question) for question in questions_data],
+            self.__question_menu_item_clicked,
         )
 
-        self.__requests_quene = components.RequestsQuene(settings.API_URL, {"Authorization": self.__token})
+        self.__requests_quene = components.RequestsQuene(
+            settings.API_URL, {"Authorization": self.__token}
+        )
 
         self.route = "/challenge"
 
         self.__quizz_panel = ft.Column(scroll=ft.ScrollMode.AUTO)
 
-        self.floating_action_button = ft.FloatingActionButton(icon=ft.icons.ARROW_FORWARD, scale=1.1, width=110, height=45, on_click=self.__accept, bgcolor=ft.colors.PRIMARY, foreground_color=ft.colors.WHITE)
-
         self.__current_question_index = 0
-        question: components.Question = self.__questions_menu.controls[self.__current_question_index].question
+        question: components.Question = self.__questions_menu.controls[
+            self.__current_question_index
+        ].question
 
         if question.is_image:
             row = ft.Row(
@@ -391,7 +413,11 @@ class ChallengePage(ft.View):
                 expand=True,
                 controls=[
                     ft.Text("Suraty görmek üçin basyň", weight=ft.FontWeight.BOLD),
-                    ft.IconButton(icon=ft.icons.ARROW_FORWARD_IOS, data=question.image, on_click=self.__show_image_dialog),
+                    ft.IconButton(
+                        icon=ft.icons.ARROW_FORWARD_IOS,
+                        data=question.image,
+                        on_click=self.__show_image_dialog,
+                    ),
                 ],
                 spacing=10,
             )
@@ -399,49 +425,79 @@ class ChallengePage(ft.View):
             row = ft.Row(
                 alignment=ft.MainAxisAlignment.START,
                 controls=[
-                    ft.Text(question.question),
+                    ft.Text(
+                        question.question,
+                        no_wrap=False,
+                        expand=True,
+                        expand_loose=True,
+                    ),
                 ],
-                scroll=ft.ScrollMode.AUTO,
             )
-
-        self.__question_row = ft.Row(
-            controls=[
-                ft.Container(
-                    bgcolor=ft.colors.INVERSE_PRIMARY, 
-                    content=row,
-                    expand=True,
-                    margin=ft.margin.only(10, 20, 10, 25),
-                    padding=ft.padding.only(20, 15, 20, 15),
-                    shadow=ft.BoxShadow(1, 10, "#bdbdbd"),
-                    border_radius=30,
-                ),
-            ],
+        # TODO
+        self.__question_row = ft.Container(
+            bgcolor=ft.colors.INVERSE_PRIMARY,
+            content=row,
+            expand=True,
+            expand_loose=True,
+            margin=ft.margin.only(10, 20, 10, 25),
+            padding=ft.padding.only(20, 15, 20, 15),
+            shadow=ft.BoxShadow(1, 10, "#bdbdbd"),
+            border_radius=30,
         )
-        
-        self.__answers_grid = ft.GridView(auto_scroll=True, runs_count=2, padding=10, height=295, child_aspect_ratio=5)
-        
-        self.__answer_containers = self.__build_answer_containers(self.__questions_menu.controls[0].question.answers)
+        # FIXME: неправильное переименование
+        self.__answers_grid = ft.Column()
+
+        self.__answer_containers = self.__build_answer_containers(
+            self.__questions_menu.controls[0].question.answers
+        )
         self.__selected_answer = None
         self.__current_question = question.pk
         self.__answered_questions_count = 0
         self.__progress_ring = ft.ProgressRing(value=1)
-        self.__answered_questions_count_text = ft.Text(f"{self.__answered_questions_count}/{self.__challenge_data["question_count"]}   ")
+        self.__answered_questions_count_text = ft.Text(
+            f"{self.__answered_questions_count}/{self.__challenge_data["question_count"]}   "
+        )
 
         self.__answers_grid.controls = self.__answer_containers
-        
+
         self.__quizz_panel.controls = [
-            ft.Row(controls=[ft.Text("Sorag:", size=18)], alignment=ft.MainAxisAlignment.CENTER),
-            self.__question_row, 
-            ft.Row(controls=[ft.Text("Jogaplar:", size=18)], alignment=ft.MainAxisAlignment.CENTER),
-            ft.Container(
-                content=self.__answers_grid,
-                margin=ft.margin.only(top=25)
-            )
+            ft.Row(
+                controls=[ft.Text("Sorag:", size=18)],
+                alignment=ft.MainAxisAlignment.CENTER,
+            ),
+            self.__question_row,
+            ft.Row(
+                controls=[ft.Text("Jogaplar:", size=18)],
+                alignment=ft.MainAxisAlignment.CENTER,
+            ),
+            ft.Container(content=self.__answers_grid, margin=ft.margin.only(top=25)),
+            ft.Row(
+                controls=[
+                    ft.Container(
+                        content=ft.FloatingActionButton(
+                            icon=ft.icons.ARROW_FORWARD,
+                            text="Indiki",
+                            scale=1.1,
+                            width=110,
+                            height=45,
+                            on_click=self.__accept,
+                            bgcolor=ft.colors.PRIMARY,
+                            foreground_color=ft.colors.WHITE,
+                        ),
+                        margin=ft.margin.all(30),
+                    )
+                ],
+                alignment=ft.MainAxisAlignment.END,
+            ),
         ]
 
         self.controls = [
             ft.AppBar(
-                title=ft.Text(self.__challenge_data["name"]),
+                leading=ft.IconButton(
+                    icon=ft.icons.MENU_ROUNDED,
+                    on_click=self.__toggle_nav,
+                ),
+                title=ft.Text(""),
                 bgcolor=ft.colors.SURFACE_VARIANT,
                 center_title=True,
                 actions=[
@@ -449,7 +505,11 @@ class ChallengePage(ft.View):
                         controls=[
                             ft.Icon(ft.icons.TIMER_SHARP),
                             components.CountDownText(
-                                self.__challenge_data["time_for_event"], self.__user_data[0]["id"], self.__challenge_data["pk"], self.__token),
+                                self.__challenge_data["time_for_event"],
+                                self.__user_data[0]["id"],
+                                self.__challenge_data["pk"],
+                                self.__token,
+                            ),
                         ],
                     ),
                     ft.Row(
@@ -457,22 +517,23 @@ class ChallengePage(ft.View):
                             self.__progress_ring,
                             self.__answered_questions_count_text,
                         ],
-                    )
+                    ),
                 ],
             ),
             ft.Row(
                 controls=[
-                    ft.Container(content=self.__questions_menu, alignment=ft.alignment.top_center),
-                    ft.VerticalDivider(),
-                    ft.Container(content=self.__quizz_panel, expand=True, alignment=ft.alignment.top_center),
-                ],    
+                    ft.Container(
+                        content=self.__quizz_panel,
+                        expand=True,
+                        alignment=ft.alignment.top_center,
+                    ),
+                ],
                 expand=True,
                 spacing=10,
                 alignment=ft.alignment.top_center,
-            )
+            ),
         ]
 
-    
     def __build_image_dialog(self, image_url: str):
         def close_dlg(e):
             dlg_modal.open = False
@@ -505,7 +566,6 @@ class ChallengePage(ft.View):
         self.page.overlay.append(dlg)
         self.page.update()
 
-
     def __build_answer_containers(self, answers: List[components.Answer]):
         containers = []
 
@@ -515,8 +575,16 @@ class ChallengePage(ft.View):
                     alignment=ft.MainAxisAlignment.SPACE_BETWEEN,
                     expand=True,
                     controls=[
-                        ft.Text("Suraty görmek üçin basyň", weight=ft.FontWeight.BOLD, color=ft.colors.PRIMARY),
-                        ft.IconButton(icon=ft.icons.ARROW_FORWARD_IOS, data=answer.image, on_click=self.__show_image_dialog),
+                        ft.Text(
+                            "Suraty görmek üçin basyň",
+                            weight=ft.FontWeight.BOLD,
+                            color=ft.colors.PRIMARY,
+                        ),
+                        ft.IconButton(
+                            icon=ft.icons.ARROW_FORWARD_IOS,
+                            data=answer.image,
+                            on_click=self.__show_image_dialog,
+                        ),
                     ],
                     spacing=10,
                 )
@@ -524,9 +592,14 @@ class ChallengePage(ft.View):
                 row = ft.Row(
                     alignment=ft.MainAxisAlignment.START,
                     controls=[
-                        ft.Text(answer.answer, color=ft.colors.PRIMARY),
+                        ft.Text(
+                            answer.answer,
+                            color=ft.colors.PRIMARY,
+                            no_wrap=False,
+                            expand=True,
+                            expand_loose=True,
+                        ),
                     ],
-                    scroll=ft.ScrollMode.AUTO,
                 )
             containers.append(
                 ft.Container(
@@ -534,17 +607,35 @@ class ChallengePage(ft.View):
                     bgcolor=ft.colors.SECONDARY_CONTAINER,
                     border_radius=30,
                     padding=15,
+                    expand=True,
+                    expand_loose=True,
                     data=answer,
                     content=row,
                     shadow=ft.BoxShadow(1, 7.5, "#e2e2e2"),
-                    animate=ft.animation.Animation(150, ft.AnimationCurve.EASE_IN)
+                    animate=ft.animation.Animation(150, ft.AnimationCurve.EASE_IN),
                 )
             )
         return containers
 
+    def __toggle_nav(self, e: ft.ControlEvent):
+        if self.__is_nav_hidden:
+
+            self.controls[1].controls = [
+                ft.Container(
+                    content=self.__questions_menu, alignment=ft.alignment.top_center
+                ),
+                ft.VerticalDivider(),
+            ] + self.controls[1].controls
+            self.__is_nav_hidden = False
+        else:
+            self.controls[1].controls.pop(0)
+            self.controls[1].controls.pop(0)
+            self.__is_nav_hidden = True
+        self.update()
+
     def __select(self, e: ft.ControlEvent):
         for answer_container in self.__answer_containers:
-        
+
             if answer_container.data != e.control.data:
                 answer_container.bgcolor = ft.colors.SECONDARY_CONTAINER
             else:
@@ -557,15 +648,21 @@ class ChallengePage(ft.View):
         self.page.update()
 
     def __accept(self, e: ft.ControlEvent):
+
         if self.__selected_answer == None and e.control.data != "modal_accept":
-            self.__dlg_empty_answer_modal = self.__build_empty_answer_dialog("Jogap meýdançasy boş!", "Dowam eden ýagdaýyňyzda soragy bilmedigiňizi tassyklarsyňyz.")
+            self.__dlg_empty_answer_modal = self.__build_empty_answer_dialog(
+                "Jogap meýdançasy boş!",
+                "Dowam eden ýagdaýyňyzda soragy bilmedigiňizi tassyklarsyňyz.",
+            )
             self.page.overlay.append(self.__dlg_empty_answer_modal)
             self.__dlg_empty_answer_modal.open = True
             self.page.update()
         else:
             if e.control.data == "modal_accept":
                 self.__dlg_empty_answer_modal.open = False
-            self.__questions_menu.controls[self.__current_question_index].question.is_answered = True
+            self.__questions_menu.controls[
+                self.__current_question_index
+            ].question.is_answered = True
             try:
                 index = self.__current_question_index + 1
                 if not self.__questions_menu.controls[index].question.is_answered:
@@ -576,7 +673,9 @@ class ChallengePage(ft.View):
             except IndexError:
                 for item in self.__questions_menu.controls:
                     if not item.question.is_answered:
-                        self.__current_question_index = self.__questions_menu.controls.index(item)
+                        self.__current_question_index = (
+                            self.__questions_menu.controls.index(item)
+                        )
                         break
                 else:
                     requests.post(
@@ -585,12 +684,18 @@ class ChallengePage(ft.View):
                         data={
                             "challenge": self.__challenge_data["pk"],
                             "user": self.__user_data[0]["id"],
-                            "date": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                            "date": datetime.datetime.now().strftime(
+                                "%Y-%m-%d %H:%M:%S"
+                            ),
                         },
                     )
                     self.page.go("/results")
             payload = {
-                "answer": None if self.__selected_answer == None else self.__selected_answer.pk,
+                "answer": (
+                    None
+                    if self.__selected_answer == None
+                    else self.__selected_answer.pk
+                ),
                 "question": self.__current_question,
                 "challenge": self.__challenge_data["pk"],
                 "datetime": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -598,7 +703,10 @@ class ChallengePage(ft.View):
             self.__questions_menu.selected_index = self.__current_question_index
             self.__questions_menu.update_selected_item()
             self.__answered_questions_count += 1
-            self.__progress_ring.value = 1 - (self.__answered_questions_count / self.__challenge_data["question_count"])
+            self.__progress_ring.value = 1 - (
+                self.__answered_questions_count
+                / self.__challenge_data["question_count"]
+            )
             self.__answered_questions_count_text.value = f"{self.__answered_questions_count}/{self.__challenge_data["question_count"]}   "
             self.__update_page()
             self.__requests_quene.send(payload)
@@ -612,7 +720,9 @@ class ChallengePage(ft.View):
         self.__selected_answer = None
 
     def __update_page(self):
-        question: components.Question = self.__questions_menu.controls[self.__current_question_index].question
+        question: components.Question = self.__questions_menu.controls[
+            self.__current_question_index
+        ].question
         self.__current_question = question.pk
         if question.is_image:
             row = ft.Row(
@@ -620,7 +730,11 @@ class ChallengePage(ft.View):
                 expand=True,
                 controls=[
                     ft.Text("Suraty görmek üçin basyň", weight=ft.FontWeight.BOLD),
-                    ft.IconButton(icon=ft.icons.ARROW_FORWARD_IOS, data=question.image, on_click=self.__show_image_dialog),
+                    ft.IconButton(
+                        icon=ft.icons.ARROW_FORWARD_IOS,
+                        data=question.image,
+                        on_click=self.__show_image_dialog,
+                    ),
                 ],
                 spacing=10,
             )
@@ -628,26 +742,31 @@ class ChallengePage(ft.View):
             row = ft.Row(
                 alignment=ft.MainAxisAlignment.START,
                 controls=[
-                    ft.Text(question.question),
+                    ft.Text(
+                        question.question,
+                        no_wrap=False,
+                        expand=True,
+                        expand_loose=True,
+                    ),
                 ],
-                scroll=ft.ScrollMode.AUTO,
             )
-
-        self.__question_row = ft.Row(
-            controls=[
-                ft.Container(
-                    bgcolor=ft.colors.INVERSE_PRIMARY, 
-                    content=row,
-                    expand=True,
-                    margin=ft.margin.only(10, 20, 10, 25),
-                    padding=ft.padding.only(20, 15, 20, 15),
-                    shadow=ft.BoxShadow(1, 10, "#bdbdbd"),
-                    border_radius=30,
-                ),
-            ],
+        # TODO
+        self.__question_row = ft.Container(
+            bgcolor=ft.colors.INVERSE_PRIMARY,
+            content=row,
+            expand=True,
+            expand_loose=True,
+            margin=ft.margin.only(10, 20, 10, 25),
+            padding=ft.padding.only(20, 15, 20, 15),
+            shadow=ft.BoxShadow(1, 10, "#bdbdbd"),
+            border_radius=30,
         )
         self.__quizz_panel.controls[1] = self.__question_row
-        self.__answer_containers = self.__build_answer_containers(self.__questions_menu.controls[self.__current_question_index].question.answers)
+        self.__answer_containers = self.__build_answer_containers(
+            self.__questions_menu.controls[
+                self.__current_question_index
+            ].question.answers
+        )
         self.__answers_grid.controls = self.__answer_containers
         self.page.update()
 
@@ -662,7 +781,11 @@ class ChallengePage(ft.View):
             content=ft.Text(dialog_message),
             actions=[
                 ft.IconButton(icon=ft.icons.HIGHLIGHT_OFF, on_click=close_dlg),
-                ft.IconButton(icon=ft.icons.CHECK_CIRCLE_OUTLINE, on_click=self.__accept, data="modal_accept"),
+                ft.IconButton(
+                    icon=ft.icons.CHECK_CIRCLE_OUTLINE,
+                    on_click=self.__accept,
+                    data="modal_accept",
+                ),
             ],
             actions_alignment=ft.MainAxisAlignment.END,
         )
@@ -671,6 +794,7 @@ class ChallengePage(ft.View):
 
     def get_challenge_data(self):
         return self.__challenge_data
+
 
 class ResultsPage(ft.View):
     def __init__(self, challenge_data, token):
@@ -689,7 +813,11 @@ class ResultsPage(ft.View):
         await asyncio.sleep(1)
         headers = {"Authorization": self.__token}
 
-        response = requests.request("GET", f"{settings.API_URL}/api/v1/useranswers/{self.__challenge_data['pk']}/", headers=headers).json()
+        response = requests.request(
+            "GET",
+            f"{settings.API_URL}/api/v1/useranswers/{self.__challenge_data['pk']}/",
+            headers=headers,
+        ).json()
 
         self.normal_radius = 100
         self.hover_radius = 110
@@ -718,7 +846,9 @@ class ResultsPage(ft.View):
 
         sections, legends = [], []
         if not self.__true_answer == 0:
-            percent = (self.__true_answer / self.__challenge_data["question_count"]) * 100 
+            percent = (
+                self.__true_answer / self.__challenge_data["question_count"]
+            ) * 100
             sections.append(
                 ft.PieChartSection(
                     percent,
@@ -726,7 +856,9 @@ class ResultsPage(ft.View):
                     title_style=self.normal_title_style,
                     color=ft.colors.GREEN,
                     radius=self.normal_radius,
-                    badge=self.badge(ft.icons.CHECK_CIRCLE_OUTLINE, self.normal_badge_size),
+                    badge=self.badge(
+                        ft.icons.CHECK_CIRCLE_OUTLINE, self.normal_badge_size
+                    ),
                     badge_position=0.98,
                 )
             )
@@ -734,13 +866,18 @@ class ResultsPage(ft.View):
                 ft.Container(
                     padding=ft.padding.only(left=5, top=5, bottom=5, right=15),
                     content=ft.Row(
-                        controls=[ft.Icon(name=ft.icons.CHECK_CIRCLE_OUTLINE), ft.Text(f"Dogry jogap: {self.__true_answer}"),],
-                        expand=True
-                    )
+                        controls=[
+                            ft.Icon(name=ft.icons.CHECK_CIRCLE_OUTLINE),
+                            ft.Text(f"Dogry jogap: {self.__true_answer}"),
+                        ],
+                        expand=True,
+                    ),
                 ),
             )
         if not self.__false_answer == 0:
-            percent = (self.__false_answer / self.__challenge_data["question_count"]) * 100 
+            percent = (
+                self.__false_answer / self.__challenge_data["question_count"]
+            ) * 100
             sections.append(
                 ft.PieChartSection(
                     percent,
@@ -756,13 +893,18 @@ class ResultsPage(ft.View):
                 ft.Container(
                     padding=ft.padding.only(left=5, top=5, bottom=5, right=15),
                     content=ft.Row(
-                        controls=[ft.Icon(name=ft.icons.HIGHLIGHT_OFF), ft.Text(f"Ýalňyş jogap: {self.__false_answer}"),],
-                        expand=True
-                    )
+                        controls=[
+                            ft.Icon(name=ft.icons.HIGHLIGHT_OFF),
+                            ft.Text(f"Ýalňyş jogap: {self.__false_answer}"),
+                        ],
+                        expand=True,
+                    ),
                 ),
             )
         if not self.__empty_answer == 0:
-            percent = (self.__empty_answer / self.__challenge_data["question_count"]) * 100
+            percent = (
+                self.__empty_answer / self.__challenge_data["question_count"]
+            ) * 100
             sections.append(
                 ft.PieChartSection(
                     percent,
@@ -778,9 +920,12 @@ class ResultsPage(ft.View):
                 ft.Container(
                     padding=ft.padding.only(left=5, top=5, bottom=5, right=15),
                     content=ft.Row(
-                        controls=[ft.Icon(name=ft.icons.DND_FORWARDSLASH), ft.Text(f"Jogapsyz: {self.__empty_answer}"),],
-                        expand=True
-                    )
+                        controls=[
+                            ft.Icon(name=ft.icons.DND_FORWARDSLASH),
+                            ft.Text(f"Jogapsyz: {self.__empty_answer}"),
+                        ],
+                        expand=True,
+                    ),
                 ),
             )
 
@@ -799,7 +944,10 @@ class ResultsPage(ft.View):
                 center_title=True,
             ),
             ft.Row(controls=[self.chart]),
-            ft.Row(controls=[ft.Column(controls=legends)], alignment=ft.MainAxisAlignment.CENTER),
+            ft.Row(
+                controls=[ft.Column(controls=legends)],
+                alignment=ft.MainAxisAlignment.CENTER,
+            ),
         ]
         self.page.update()
 
